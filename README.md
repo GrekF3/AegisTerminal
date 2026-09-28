@@ -1,4 +1,4 @@
-# Cross-Exchange Hedge Terminal
+# Aegis Terminal
 
 A desktop trading terminal for monitoring markets and coordinating hedged positions across multiple exchanges.
 
