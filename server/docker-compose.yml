@@ -1,0 +1,32 @@
+services:
+  hedge-api:
+    build: .
+    container_name: hedge_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data
+      - ./downloads:/downloads:ro
+      - ./updates:/updates:ro
+    expose:
+      - "8000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "python", "-S", "-c", "import socket; s=socket.create_connection(('127.0.0.1',8000),timeout=5); s.sendall(b'GET /healthz HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n'); status=s.makefile('rb').readline(128).split(); s.close(); assert len(status)>1 and status[1]==b'200'"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.hedge-api.entrypoints=websecure
+      - traefik.http.routers.hedge-api.rule=Host(`hedge.swallet.site`)
+      - traefik.http.routers.hedge-api.tls.certresolver=letsencrypt
+      - traefik.http.services.hedge-api.loadbalancer.server.port=8000

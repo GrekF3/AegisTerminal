@@ -1,0 +1,263 @@
+{% extends "admin_base.html" %}
+{% block title %}NoName Admin{% endblock %}
+{% block content %}
+<section class="section">
+    <div class="section__head">
+        <div>
+            <h1 class="section__title">Панель ключей</h1>
+            <p class="section__desc">Управляйте ключами, отслеживайте статусы и моментально реагируйте на попытки злоупотреблений.</p>
+        </div>
+    </div>
+</section>
+
+{% if message %}
+<div class="alert alert--info">{{ message }}</div>
+{% endif %}
+
+{% if generated_admin_key %}
+<div class="alert alert--warning">
+    <strong>Новый суперадминский ключ:</strong>
+    <code>{{ generated_admin_key }}</code>
+    <div class="muted" style="margin-top:8px;">Сохраните его — ключ отображается только один раз после генерации.</div>
+</div>
+{% endif %}
+
+{% if new_keys %}
+<div class="alert alert--success">
+    <strong>Новые ключи готовы:</strong>
+    <ul class="new-keys-list">
+        {% for key in new_keys %}
+        <li>{{ key }}</li>
+        {% endfor %}
+    </ul>
+    <div class="muted" style="margin-top:10px;">Ключи показываются только здесь и только один раз.</div>
+</div>
+{% endif %}
+
+<section class="section">
+    <form class="panel" method="get" action="/admin" style="margin-bottom:24px;">
+        <div class="form-grid" style="align-items:end;">
+            <div class="form-field" style="grid-column:1 / span 3;">
+                <label class="form-label">Поиск по ключу или ID пользователя</label>
+                <input type="text" name="q" placeholder="Введите ключ или ID" value="{{ pagination.query }}">
+            </div>
+            <div class="form-actions">
+                <input type="hidden" name="page" value="1">
+                <button class="button button--primary" type="submit">Найти</button>
+                {% if pagination.query %}
+                <a class="button button--ghost" href="/admin">Сбросить</a>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+</section>
+
+<section class="section">
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="stat-label">Всего ключей</span>
+            <span class="stat-value">{{ stats.total }}</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">Активные</span>
+            <span class="stat-value">{{ stats.active }}</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">Ожидают активации</span>
+            <span class="stat-value">{{ stats.pending }}</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">Админские</span>
+            <span class="stat-value">{{ stats.admins }}</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">Заблокированные</span>
+            <span class="stat-value">{{ stats.revoked }}</span>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="panel">
+        <div class="panel__header">
+            <h2>Создать новые ключи</h2>
+            <p>Сгенерируйте нужное количество ключей. Срок начнётся в момент первой активации.</p>
+        </div>
+        <form class="form-grid" method="post" action="/admin/keys/create{{ pagination.query_string }}">
+            <div class="form-field">
+                <label class="form-label">Количество</label>
+                <input type="number" name="count" value="1" min="1" max="100" required>
+            </div>
+            <div class="form-field">
+                <label class="form-label">Срок (дней)</label>
+                <input type="number" name="ttl_days" min="1" max="3650" placeholder="∞">
+                <span class="muted">При активации отсчёт начнётся автоматически.</span>
+            </div>
+            <div class="form-field">
+                <label class="form-label">Метка</label>
+                <input type="text" name="label" placeholder="Например: Иван / тариф X">
+            </div>
+            <div class="form-field">
+                <label class="form-label">Заметка</label>
+                <input type="text" name="owner_note" placeholder="Дополнительная информация">
+            </div>
+            <div class="form-field" style="align-self:center;">
+                <label class="checkbox-line">
+                    <input type="checkbox" name="is_admin" value="true">
+                    Админский ключ (бессрочный)
+                </label>
+            </div>
+            <div class="form-actions" style="grid-column: 1 / -1;">
+                <button class="button button--primary" type="submit">Создать ключи</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<section class="section">
+    <div class="panel">
+        <div class="panel__header">
+            <h2>Список ключей</h2>
+            <p>Детали по каждому ключу, статус, история активаций и быстрые действия.</p>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width:24%;">Ключ</th>
+                        <th style="width:14%;">ID пользователя</th>
+                        <th style="width:18%;">Контакты</th>
+                        <th style="width:20%;">Статус</th>
+                        <th style="width:16%;">Активность</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for key in keys %}
+                    {% set badge = 'badge--neutral' %}
+                    {% if key.status == 'Активен' %}{% set badge = 'badge--success' %}{% endif %}
+                    {% if key.status == 'Админский' %}{% set badge = 'badge--accent' %}{% endif %}
+                    {% if key.status == 'Заблокирован' %}{% set badge = 'badge--danger' %}{% endif %}
+                    {% if key.status == 'Просрочен' %}{% set badge = 'badge--warning' %}{% endif %}
+                    <tr class="{% if key.revoked %}is-revoked{% endif %}">
+                        <td>
+                            <div class="inline-meta">#{{ key.id }}</div>
+                            <div class="key-code" style="margin-top:8px;">{{ key.key }}</div>
+                            {% if key.label %}<div class="inline-meta">{{ key.label }}</div>{% endif %}
+                            {% if key.owner_note %}<div class="inline-note">{{ key.owner_note }}</div>{% endif %}
+                        </td>
+                        <td>
+                            {% if key.user_code %}
+                            <div class="inline-meta" style="font-size:15px; font-weight:600;">{{ key.user_code }}</div>
+                            {% else %}
+                            <div class="inline-meta">—</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="inline-meta">Telegram: {{ key.telegram_id or '—' }}</div>
+                            <div class="inline-meta">Система: {{ key.system_fingerprint or '—' }}</div>
+                        </td>
+                        <td>
+                            <span class="badge {{ badge }}">{{ key.status }}</span>
+                            {% if key.status == 'Активен' and key.expires_at %}
+                                <div class="inline-meta">до {{ key.expires_at.strftime('%d.%m.%Y %H:%M') }}</div>
+                                {% if key.remaining_days is not none %}<div class="inline-meta">осталось {{ key.remaining_days }} дн.</div>{% endif %}
+                            {% elif key.status == 'Ожидает активации' and key.valid_days %}
+                                <div class="inline-meta">{{ key.valid_days }} дн. будут засчитаны после первого входа</div>
+                            {% elif key.status == 'Готов к активации' %}
+                                <div class="inline-meta">Бессрочный ключ без привязок</div>
+                            {% elif key.status == 'Просрочен' and key.expires_at %}
+                                <div class="inline-meta">истёк {{ key.expires_at.strftime('%d.%m.%Y %H:%M') }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if key.activated_at %}
+                                <div class="inline-meta">Активирован: {{ key.activated_at.strftime('%d.%m.%Y %H:%M') }}</div>
+                            {% else %}
+                                <div class="inline-meta">Ещё не активирован</div>
+                            {% endif %}
+                            {% if key.last_used_at %}
+                                <div class="inline-meta">Последний вход: {{ key.last_used_at.strftime('%d.%m.%Y %H:%M') }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="button-row">
+                                <form method="post" action="/admin/keys/{{ key.id }}/ban{{ pagination.query_string }}">
+                                    <button class="button button--danger button--tiny" type="submit" {% if key.revoked %}disabled{% endif %}>Бан</button>
+                                </form>
+                                <form method="post" action="/admin/keys/{{ key.id }}/unban{{ pagination.query_string }}">
+                                    <button class="button button--success button--tiny" type="submit" {% if not key.revoked %}disabled{% endif %}>Снять бан</button>
+                                </form>
+                                <form method="post" action="/admin/keys/{{ key.id }}/make-admin{{ pagination.query_string }}">
+                                    <button class="button button--warning button--tiny" type="submit" {% if key.is_admin %}disabled{% endif %}>Админ</button>
+                                </form>
+                            </div>
+                            <div class="button-row" style="margin-top:10px;">
+                                <form class="inline-form" method="post" action="/admin/keys/{{ key.id }}/extend{{ pagination.query_string }}">
+                                    <input type="number" name="days" min="1" placeholder="дней" {% if key.is_admin %}disabled{% endif %}>
+                                    <button class="button button--ghost button--tiny" type="submit" {% if key.is_admin %}disabled{% endif %}>+ дни</button>
+                                </form>
+                            </div>
+                            <details class="edit-details">
+                                <summary>Редактировать</summary>
+                                <form class="form-grid form-grid--compact" method="post" action="/admin/keys/{{ key.id }}/update{{ pagination.query_string }}">
+                                    <div class="form-field">
+                                        <label class="form-label">Telegram ID</label>
+                                        <input type="text" name="telegram_id" value="{{ key.telegram_id or '' }}">
+                                    </div>
+                                    <div class="form-field">
+                                        <label class="form-label">Система</label>
+                                        <input type="text" name="system_fingerprint" value="{{ key.system_fingerprint or '' }}">
+                                    </div>
+                                    <div class="form-field">
+                                        <label class="form-label">Метка</label>
+                                        <input type="text" name="label" value="{{ key.label or '' }}">
+                                    </div>
+                                    <div class="form-field">
+                                        <label class="form-label">Заметка</label>
+                                        <input type="text" name="owner_note" value="{{ key.owner_note or '' }}">
+                                    </div>
+                                    <div class="form-field" style="align-self:center;">
+                                        <label class="checkbox-line">
+                                            <input type="checkbox" name="reset_activation" value="true">
+                                            Сбросить активацию
+                                        </label>
+                                    </div>
+                                    <div class="form-actions" style="grid-column: 1 / -1;">
+                                        <button class="button button--primary button--tiny" type="submit">Сохранить</button>
+                                    </div>
+                                </form>
+                            </details>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align:center; padding:48px 20px;">
+                            <div class="muted">Пока нет созданных ключей.</div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+{% if pagination.pages > 1 %}
+<nav class="panel" style="margin-top: -8px; padding: 16px 24px; display:flex; justify-content:space-between; align-items:center;">
+    <div class="muted">Страница {{ pagination.page }} из {{ pagination.pages }}</div>
+    <div class="button-row">
+        {% if pagination.has_prev %}
+        <a class="button button--ghost" href="/admin?page={{ pagination.page - 1 }}{% if pagination.query %}&q={{ pagination.query | urlencode }}{% endif %}">Назад</a>
+        {% else %}
+        <span class="button button--ghost" style="opacity:0.4; cursor:not-allowed;">Назад</span>
+        {% endif %}
+        {% if pagination.has_next %}
+        <a class="button button--primary" href="/admin?page={{ pagination.page + 1 }}{% if pagination.query %}&q={{ pagination.query | urlencode }}{% endif %}">Вперёд</a>
+        {% else %}
+        <span class="button button--ghost" style="opacity:0.4; cursor:not-allowed;">Вперёд</span>
+        {% endif %}
+    </div>
+</nav>
+{% endif %}
+{% endblock %}

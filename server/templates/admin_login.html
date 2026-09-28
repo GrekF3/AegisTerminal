@@ -1,0 +1,26 @@
+{% extends "admin_base.html" %}
+{% block title %}Вход — NoName Admin{% endblock %}
+{% block content %}
+<div class="centered">
+    <div class="auth-shell">
+        <div class="panel panel--compact">
+            <h1 class="panel__title">Добро пожаловать</h1>
+            <p class="panel__subtitle">Введите суперадминский ключ, чтобы открыть панель управления ключами.</p>
+
+            {% if error %}
+            <div class="alert alert--warning">{{ error }}</div>
+            {% endif %}
+
+            <form method="post" action="/admin/login" class="form-grid">
+                <div class="form-field" style="grid-column: 1 / -1;">
+                    <label for="admin_key" class="form-label">Админ-ключ</label>
+                    <input id="admin_key" name="admin_key" type="password" autocomplete="off" placeholder="super_xxx" required>
+                </div>
+                <div class="form-actions" style="grid-column: 1 / -1;">
+                    <button class="button button--primary" type="submit">Войти</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
